@@ -20,24 +20,6 @@ connection.connect(function (err) {
         console.log("Подключение к серверу MySQL успешно установлено");
     }
 });
-//
-// connection.query("SELECT password FROM users WHERE login = 'mary'",function(err, result){
-//     if(err){
-//         console.log("Ошибка: " + err.message);
-//     }else{
-//         console.log(result);
-//     }
-// });
-
-//закрытие подключения
-// connection.end(function(err){
-//    if(err){
-//        console.log("Ошибка: " + err.message);
-//    }else{
-//        console.log("Подключение закрыто");
-//    }
-// });
-
 
 app.use(
     cors({
@@ -66,28 +48,6 @@ app.get('/auth/', function (req, res) {
         }
     });
 })
-// app.get('/reg/', function (req, res) {
-//     const info = req.query.q.split(",");
-//     connection.query("SELECT * FROM users WHERE login = ?", [info[0]], function (err, result) {
-//         if (err) {
-//             console.log(err);
-//         } else {
-//             if (result[0] === undefined) {
-//                 console.log("Пользователь не существует");
-//                 connection.query("INSERT INTO users (login, email, password) VALUES (?, ?, ?)", [info[0], info[1], info[2]], function (err, result) {
-//                     if(err){
-//                         console.log(err);
-//                     }else{
-//                         res.json("Пользователь был успешно создан");
-//                     }
-//                 });
-//             } else {
-//                 console.log("Пользователь уже существует");
-//                 res.json("Пользователь уже существует");
-//             }
-//         }
-//     });
-// })
 
 app.get('/reg/', function (req, res) {
     const info = req.query.q.split(",");
