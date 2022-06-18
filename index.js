@@ -3,23 +3,14 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const app = express();
 const port = 3001
+const db = require('./db');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const config = require('./config');
 
-const mysql = require('mysql2')
-const connection = mysql.createConnection({
-    host: "localhost",
-    user: "root",
-    database: "solfadb",
-    password: "1234"
-});
 
-//тестирование подключения к бд
-connection.connect(function (err) {
-    if (err) {
-        console.log("Ошибка: " + err.message);
-    } else {
-        console.log("Подключение к серверу MySQL успешно установлено");
-    }
-});
+app.use(bodyParser.urlencoded({extended:true}));
+app.use(bodyParser.json());
 
 app.use(
     cors({
@@ -30,37 +21,53 @@ app.use(
 
 app.get('/auth/', function (req, res) {
     const info = req.query.q.split(",");
-    connection.query("SELECT * FROM users WHERE login = ? AND password = ?", [info[0].toString(), info[1].toString()], function (err, result) {
+    db.query("SELECT * FROM users WHERE login = ? OR email = ?", [info[0].toString(),info[0].toString()], function (err, result) {
         if (err) {
-            console.log(err);
-            res.json("Что-то пошло не так. Попробуйте еще раз.")
-        } else {
-            if(result[0] !== undefined){
-                if(result[0].login === "ADMIN"){
-                    res.json("It's admin");
-                } else {
-                    res.json("It's user");
-                }
-            }
-            else{
-                res.json("Такого пользователя не существует.");
-            }
+            res.json("Что-то пошло не так. Попробуйте еще раз.");
+        } else if(result.length <= 0) {
+            res.json("Такого пользователя не существует!");
+        }
+        else {
+            const searchResult = JSON.parse(JSON.stringify(result));
+            searchResult.map(mapResult => {
+               const checkedPassword = bcrypt.compareSync(info[1], mapResult.password);
+               if(checkedPassword === true){
+                   const token = jwt.sign({
+                       login:mapResult.login,
+                       is_admin:mapResult.is_admin
+                   }, config.jwt,{expiresIn:"3h"});
+                   res.json(`Bearer ${token}`);
+               } else {
+                   res.json("Неверный пароль");
+               }
+            });
         }
     });
 })
 
 app.get('/reg/', function (req, res) {
     const info = req.query.q.split(",");
-    connection.query("INSERT INTO users (login, email, password) VALUES (?, ?, ?)", [info[0], info[1], info[2]], function (err, result)  {
+    db.query("SELECT * FROM users WHERE email = ?", [info[1].toString()], function (err, result){
         if (err) {
-            console.log(err);
-            if(err.toString().includes("Duplicate entry")){
-                res.json("Такой логин уже используется");
-            }
-        } else {
-            res.json("Пользователь был успешно создан");
+            res.json(err);
+        } else if(typeof result !== undefined && result.length > 0){
+            const searchResult = JSON.parse(JSON.stringify(result));
+            searchResult.map(result => {
+                res.json("Такой email уже используется");
+            })
         }
-    });
+        else{
+            const salt = bcrypt.genSaltSync(7);
+            const hashPassword = bcrypt.hashSync(info[2], salt);
+            db.query("INSERT INTO users (login, email, password, is_admin) VALUES (?, ?, ?, ?)", [info[0], info[1], hashPassword, info[3]], function(err, result){
+                if(err){
+                    res.json(err);
+                } else{
+                    res.json("Пользователь был успешно создан");
+                }
+            })
+        }
+    })
 })
 
 app.listen(port, '0.0.0.0', () => console.log(`Server is live at http://localhost:${port}`));
